@@ -83,7 +83,8 @@ class NokiaAuth(object):
         tokens = self._oauth().fetch_token(
             '%s/oauth2/token' % self.URL,
             code=code,
-            client_secret=self.consumer_secret)
+            client_secret=self.consumer_secret,
+            include_client_id=True)
 
         return NokiaCredentials(
             access_token=tokens['access_token'],
