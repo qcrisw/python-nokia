@@ -155,9 +155,10 @@ class NokiaApi(object):
     """
     URL = 'https://wbsapi.withings.net'
 
-    def __init__(self, credentials, refresh_cb=None):
+    def __init__(self, credentials, json_response = False, refresh_cb=None):
         self.credentials = credentials
         self.refresh_cb = refresh_cb
+        self.json_response = json_response
         self.token = {
             'access_token': credentials.access_token,
             'refresh_token': credentials.refresh_token,
@@ -209,22 +210,38 @@ class NokiaApi(object):
     def get_user(self):
         return self.request('user', 'getbyuserid')
 
+    def get_measures(self, **kwargs):
+        r = self.request('measure', 'getmeas', kwargs)
+        return r if self.json_response else NokiaMeasures(r)
+
     def get_activities(self, **kwargs):
         r = self.request('measure', 'getactivity', params=kwargs, version='v2')
         activities = r['activities'] if 'activities' in r else [r]
-        return [NokiaActivity(act) for act in activities]
+        return r if self.json_response else [NokiaActivity(act) for act in activities] 
 
-    def get_measures(self, **kwargs):
-        r = self.request('measure', 'getmeas', kwargs)
-        return NokiaMeasures(r)
+    def get_intraday_activities(self, **kwargs):
+        r = self.request('measure', 'getintradayactivity', params=kwargs, version='v2')
+        return r if self.json_response else NokiaIntradayActivity(r)
+
+    def get_workouts(self, **kwargs):
+        r = self.request('measure', 'getworkouts', params=kwargs, version='v2')
+        return r if self.json_response else NokiaWorkout(r)
+
+    def get_ecg(self, **kwargs):
+        r = self.request('heart', 'get', params=kwargs, version='v2')
+        return r if self.json_response else NokiaEcg(r)
+    
+    def get_heart_data(self, **kwargs):
+        r = self.request('heart', 'list', params=kwargs, version='v2')
+        return r if self.json_response else NokiaHeart(r)
 
     def get_sleep(self, **kwargs):
         r = self.request('sleep', 'get', params=kwargs, version='v2')
-        return NokiaSleep(r)
+        return r if self.json_response else NokiaSleep(r)
 
     def get_sleep_summary(self, **kwargs):
         r = self.request('sleep', 'getsummary', params=kwargs, version='v2')
-        return NokiaSleepSummary(r)
+        return r if self.json_response else NokiaSleepSummary(r)
 
     def subscribe(self, callback_url, comment, **kwargs):
         params = {'callbackurl': callback_url, 'comment': comment}
@@ -261,7 +278,104 @@ class NokiaObject(object):
             except ParserError:
                 setattr(self, key, val)
 
+class NokiaEcg(NokiaObject):
+    def __init__(self, data):
+        pass
 
+class NokiaEcgRecording(NokiaObject):
+    ABIB_CLASSIFICATION_TYPES = {
+        0 : 'Negative',
+        1 : 'Positive',
+        2 : 'Inconclusive'
+    }
+    def __init__(self, data):
+        super(NokiaEcgRecording, self).__init__(data)
+        self.afib_string = self.ABIB_CLASSIFICATION_TYPES[self.afib]
+
+class NokiaBloodPressureRecording(NokiaObject):
+    def __init__(self, data):
+        pass
+
+class NokiaHeartSeries(NokiaObject):
+    def __init__(self, data):
+        super(NokiaHeartSeries, self).__init__(data)
+        self.ecg = NokiaEcgRecording(self.ecg)
+        self.bloodpressure = NokiaBloodPressureRecording(self.bloodpressure)
+class NokiaHeart(NokiaObject):
+    def __init__(self, data):
+        super(NokiaHeart, self).__init__(data)
+        self.series = [NokiaHeartSeries(series) for series in self.series]    
+
+class NokiaWorkoutSeries(NokiaObject):
+    WORKOUT_CATEGORY_TYPES = {
+        1   : "Walk",
+        2	: "Run",
+        3	: "Hiking",
+        4	: "Skating",
+        5	: "BMX",
+        6	: "Bicycling",
+        7	: "Swimming",
+        8	: "Surfing",
+        9	: "Kitesurfing",
+        10	: "Windsurfing",
+        11	: "Bodyboard",
+        12	: "Tennis",
+        13	: "Table tennis",
+        14	: "Squash",
+        15	: "Badminton",
+        16	: "Lift weights",
+        17	: "Calisthenics",
+        18	: "Elliptical",
+        19	: "Pilates",
+        20	: "Basket-ball",
+        21	: "Soccer",
+        22	: "Football",
+        23	: "Rugby",
+        24	: "Volley-ball",
+        25	: "Waterpolo",
+        26	: "Horse riding",
+        27	: "Golf",
+        28	: "Yoga",
+        29	: "Dancing",
+        30	: "Boxing",
+        31	: "Fencing",
+        32	: "Wrestling",
+        33	: "Martial arts",
+        34	: "Skiing",
+        35	: "Snowboarding",
+        36	: "Other",
+        128	: "No activity",
+        187	: "Rowing",
+        188	: "Zumba",
+        191	: "Baseball",
+        192	: "Handball",
+        193	: "Hockey",
+        194	: "Ice hockey",
+        195	: "Climbing",
+        196	: "Ice skating",
+        272	: "Multi-sport",
+        307	: "Indoor running"
+    }
+    def __init__(self, data):
+        _data = data
+        _data.update(_data.pop('data'))
+        super(NokiaWorkoutSeries, self).__init__(_data)
+        self.category_string = self.WORKOUT_CATEGORY_TYPES[self.category]        
+
+class NokiaWorkout(NokiaObject):
+    def __init__(self, data):
+        super(NokiaWorkout, self).__init__(data)
+        self.series = [NokiaWorkoutSeries(series) for series in self.series]
+class NokiaIntradaySeries(NokiaObject):
+    def __init__(self, data):
+        self.timestamp = next(iter(data))
+        super(NokiaIntradaySeries, self).__init__(data[self.timestamp])
+
+class NokiaIntradayActivity(NokiaObject):
+    def __init__(self, data):
+        super(NokiaIntradayActivity, self).__init__(data)
+        self.series = [NokiaIntradaySeries(series) for series in self.series]
+        
 class NokiaActivity(NokiaObject):
     pass
 
