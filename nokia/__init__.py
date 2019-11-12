@@ -204,7 +204,7 @@ class NokiaApi(object):
         r = self.client.request(method, '/'.join(url_parts), params=params)
         response = json.loads(r.content.decode())
         if response['status'] != 0:
-            raise Exception("Error code %s" % str(response))
+            raise NokiaError(response, "Error code %s" % str(response))
         return response.get('body', None)
 
     def get_user(self):
@@ -265,6 +265,10 @@ class NokiaApi(object):
         r = self.request('notify', 'list', {'appli': appli})
         return r['profiles']
 
+class NokiaError(Exception) :
+    def __init__(self, response, error_msg):
+        self.response = response
+        Exception.__init__(self, error_msg)
 
 class NokiaObject(object):
     def __init__(self, data):
