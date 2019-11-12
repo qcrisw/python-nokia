@@ -204,7 +204,7 @@ class NokiaApi(object):
         r = self.client.request(method, '/'.join(url_parts), params=params)
         response = json.loads(r.content.decode())
         if response['status'] != 0:
-            raise Exception("Error code %s" % response['status'])
+            raise Exception("Error code %s" % str(response))
         return response.get('body', None)
 
     def get_user(self):
