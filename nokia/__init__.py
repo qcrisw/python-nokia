@@ -167,17 +167,24 @@ class NokiaApi(object):
         }
         oauth_client = WebApplicationClient(credentials.client_id,
             token=self.token, default_token_placement='query')
-        self.client = OAuth2Session(
-            credentials.client_id,
-            token=self.token,
-            client=oauth_client,
-            auto_refresh_url='{}/oauth2/token'.format(NokiaAuth.URL),
-            auto_refresh_kwargs={
-                'client_id': credentials.client_id,
-                'client_secret': credentials.consumer_secret,
-            },
-            token_updater=self.set_token
-        )
+        
+        if self.refresh_cb:
+            self.client = OAuth2Session(
+                credentials.client_id,
+                token=self.token,
+                client=oauth_client,
+                auto_refresh_url='{}/oauth2/token'.format(NokiaAuth.URL),
+                auto_refresh_kwargs={
+                    'client_id': credentials.client_id,
+                    'client_secret': credentials.consumer_secret,
+                },
+                token_updater=self.set_token
+            )
+        else:
+            self.client = OAuth2Session(
+                credentials.client_id,
+                token=self.token,
+                client=oauth_client)
 
     def get_credentials(self):
         return self.credentials
